@@ -3,7 +3,7 @@ import math
 import random
 import re
 import json
-from typing import List, Tuple, Dict, Any, Optional
+from typing import List, Tuple, Dict, Any, Optional, Union
 import itertools
 from llm_utils import LLMService
 
@@ -31,27 +31,28 @@ def check_correctness(generated_response: str, expected_answer: str) -> bool:
 
 
 class LanguageModel:
-    def __init__(self, model_name="/root/.cache/modelscope/hub/Qwen/Qwen2___5-Math-7B-Instruct",
-                 device="cuda", max_new_tokens=512, temperature=0.7, top_k=30, top_p=0.9, model_type="vllm"):
-        """
-        Initialize the LanguageModel with parameters for the LLM service.
-
-        Parameters:
-        - model_name (str): Path or model name for the LLM.
-        - device (str): Device for computation (e.g., 'cuda', 'cpu').
-        - max_new_tokens (int): Max tokens for response generation.
-        - temperature (float): Sampling temperature for diversity.
-        - top_k (int): Top-K sampling for diversity.
-        - top_p (float): Top-P sampling for response diversity.
-        """
+    def __init__(
+        self,
+        model_name: str,
+        model_type: str = "hf",
+        device: str = "cuda",
+        max_new_tokens: int = 2048,
+        temperature: float = 0.7,
+        top_k: int = 30,
+        top_p: float = 0.9,
+        api_key: Optional[str] = None,
+        api_base: Optional[str] = None,
+    ):
         self.llm_service = LLMService(
             model_name=model_name,
+            model_type=model_type,
             device=device,
             max_new_tokens=max_new_tokens,
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,
-            model_type=model_type
+            api_key=api_key,
+            api_base=api_base,
         )
         self.default_prompt = (
             "Please complete the answer for the question based on the given steps without generating existing steps again, "
@@ -59,19 +60,11 @@ class LanguageModel:
         )
         self.llm_service.start_service()
 
-    def generate_rollout(self, state_prefix: str, num_copies) -> List[str]:
-        """
-        Combine the default prompt with the state prefix and generate a response.
-
-        Parameters:
-        - state_prefix (str): The current solution prefix.
-
-        Returns:
-        - str: Generated response from LLM.
-        """
+    def generate_rollout(self, state_prefix: str, num_samples: int = 1) -> List[str]:
+        """Generate multiple responses for a given prompt."""
         prompt = self.default_prompt + state_prefix
-        batch_response = self.llm_service.generate_response(prompt, num_copies)
-        return batch_response # Assuming the response format has ['role'] entries and 'assistant' response
+        prompts = [prompt] * num_samples
+        return self.llm_service.generate_batch(prompts, batch_size=1)
 
     def update_prompt(self, new_prompt: str):
         """
@@ -82,21 +75,12 @@ class LanguageModel:
         """
         self.default_prompt = new_prompt
 
-    def evaluate_correctness(self, response: str, expected_answer: str) -> bool:
-        """
-        Check if the generated solution matches the expected answer.
-
-        Parameters:
-        - solution (str): The complete generated response.
-        - expected_answer (str): The expected answer to compare with.
-
-        Returns:
-        - bool: True if the expected answer is in the final part of the solution.
-        """
-        return check_correctness(response, expected_answer)
+    def evaluate_correctness(self, generated_answer: str, correct_answer: str) -> bool:
+        """Evaluate if the generated answer matches the correct answer."""
+        # Simple exact match for now - can be enhanced with more sophisticated matching
+        return generated_answer.strip() == correct_answer.strip()
 
 
-# Define the State class
 class State:
     def __init__(self, solution_prefix: str, parent: Optional['State'] = None):
         self.solution_prefix = solution_prefix  # Solution prefix as a single string
@@ -159,6 +143,7 @@ class SearchTree:
 
     def add_state(self, state: State):
         self.nodes.append(state)
+
 
 # Define the Candidate Pool as a priority queue with update capability
 class CandidatePool:
@@ -225,10 +210,21 @@ class CandidatePool:
     def is_empty(self) -> bool:
         return not self.entry_finder
 
+
 # Define the OmegaPRM algorithm
 class OmegaPRM:
-    def __init__(self, LM: LanguageModel,  c_puct: float, alpha: float, beta: float, L: int, k: int, N: int,
-                 rollout_budget: int, save_data_tree: bool):
+    def __init__(
+        self,
+        LM: LanguageModel,
+        c_puct: float = 0.125,
+        alpha: float = 0.5,
+        beta: float = 0.9,
+        L: int = 500,
+        k: int = 16,
+        N: int = 10,
+        rollout_budget: int = 100,
+        save_data_tree: bool = True,
+    ):
         """
         Initialize the OmegaPRM algorithm.
 
@@ -258,9 +254,6 @@ class OmegaPRM:
 
         self.n = 0
         self.total_rollouts = 0
-
-
-
 
     def reset(self):
         """Reset internal state variables to prepare for a fresh run."""
@@ -324,12 +317,12 @@ class OmegaPRM:
         c = 0  # Correct rollouts count
         incorrect_rollouts = []
         correct_rollouts = []
-        batct_rollouts = self.LM.generate_rollout(state.solution_prefix, self.k)
+        batch_rollouts = self.LM.generate_rollout(state.solution_prefix, self.k)
 
         # Increment visit count of selected state
         state.N += 1
 
-        for i, rollout in enumerate(batct_rollouts):
+        for i, rollout in enumerate(batch_rollouts):
             # Increment number of total rollouts
             self.total_rollouts += 1
 
@@ -375,7 +368,6 @@ class OmegaPRM:
 
                 priority = self.compute_selection_score(state, rollout)
                 self.C.add_or_update(state, rollout, priority)
-
 
     def compute_Q(self, state: State, rollout: str) -> float:
         """
@@ -425,7 +417,6 @@ class OmegaPRM:
         self.T.add_state(new_state)
         parent_state.children.append(new_state)  # Add to parent's children
 
-
     def expansion_phase_binary_search(self, parent_state: State, rollout: str):
         """
         Expansion phase that adds the rollout as a new state and performs Monte Carlo estimation
@@ -468,7 +459,6 @@ class OmegaPRM:
 
         # Perform Monte Carlo estimation for s_new
         self.monte_carlo_estimation(s_new)
-
 
         if s_new.MC == 0:
 
@@ -529,22 +519,21 @@ class OmegaPRM:
         return {}
 
 
-
-
-
-
 # Example usage
 if __name__ == "__main__":
     # Initialize the Language Model
     LM = LanguageModel(
+        model_name="/root/.cache/modelscope/hub/Qwen/Qwen2___5-Math-7B-Instruct",
         device="cuda",
         max_new_tokens=2048,
-        model_type="vllm"
+        model_type="vllm",
+        api_key="your_api_key",
+        api_base="https://api.example.com",
     )
 
     # Define the question and expected answer
     question = "Melinda will roll two standard six-sided dice and make a two-digit number with the two numbers she rolls. For example, if she rolls a 6 and a 3, she can either form 36 or 63. What is the probability that she will be able to make an integer between 10 and 20, inclusive? Express your answer as a common fraction."
-    expected_answer =  "\\frac{11}{36}"
+    expected_answer = "\\frac{11}{36}"
 
     # Initialize OmegaPRM with parameters
     omega_prm = OmegaPRM(
@@ -565,5 +554,3 @@ if __name__ == "__main__":
     # Save the collected solutions to a JSON file
     with open("collected_solutions2.json", "w") as f:
         json.dump(collected_data, f, indent=4)
-
-
