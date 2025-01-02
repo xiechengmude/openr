@@ -55,11 +55,14 @@ def should_process_question(question: Dict[str, str], llm: LanguageModel) -> boo
     has_correct = False
     has_incorrect = False
 
-    initial_batch_answers = llm.generate_rollout(prompt, 32)
+    initial_batch_answers = llm.generate_rollout(prompt, 64)
     logger.info(f"Generated {len(initial_batch_answers)} initial answers for filtering")
-
-    for answer in initial_batch_answers:
-        if llm.evaluate_correctness(answer, correct_answer):
+    
+    # Log all generated answers
+    for i, answer in enumerate(initial_batch_answers):
+        is_correct = llm.evaluate_correctness(answer, correct_answer)
+        logger.info(f"Answer {i+1}: {answer[:200]}... (Correct: {is_correct})")
+        if is_correct:
             has_correct = True
         else:
             has_incorrect = True

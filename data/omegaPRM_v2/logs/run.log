@@ -1,0 +1,28 @@
+2025-01-02 15:44:56,473 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:44:59,000 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:45:01,800 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:45:04,368 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:45:07,443 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:45:11,489 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:45:14,209 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:45:15,973 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:45:19,444 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:45:19,446 [INFO] Generated 32 initial answers for filtering
+2025-01-02 15:45:19,446 [INFO] Skipping question 3 (did not pass initial filtering)
+2025-01-02 15:45:19,446 [INFO] Processing completed. Processed 0/3 questions
+2025-01-02 15:45:21,230 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:45:26,264 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:45:31,480 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:46:22,871 [INFO] Loaded 3 questions from ../sources/test.json
+2025-01-02 15:46:22,893 [INFO] Initialized openai model: deepseek-chat
+2025-01-02 15:46:30,615 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:46:36,649 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:46:45,006 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:46:51,124 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:46:57,288 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:47:05,370 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:47:12,717 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:47:18,513 [INFO] HTTP Request: POST http://35.240.173.116:7220/v1/chat/completions "HTTP/1.1 200 OK"
+2025-01-02 15:53:28,211 [INFO] Loaded 3 questions from ../sources/test.json
+2025-01-02 15:55:29,111 [INFO] Loaded 3 questions from ../sources/test.json
+2025-01-02 15:55:35,198 [INFO] Loaded 3 questions from ../sources/test.json
