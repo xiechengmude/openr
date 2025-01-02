@@ -2,7 +2,7 @@ import argparse
 import json
 import logging
 import os
-from typing import Dict
+from typing import Dict, Any, List
 from pathlib import Path
 
 from omegaprm import LanguageModel, OmegaPRM
@@ -23,13 +23,29 @@ def setup_logging(log_file_prefix: str):
     )
     return logging.getLogger(__name__)
 
-def load_questions(filepath: str):
+def load_questions(filepath: str) -> List[Dict[str, str]]:
     """Load questions from JSON file."""
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Dataset file not found: {filepath}")
         
     with open(filepath, "r", encoding='utf-8') as f:
-        return json.load(f)
+        data = json.load(f)
+        # 确保数据格式正确
+        if isinstance(data, dict):
+            # 如果是字典，假设它包含一个问题列表
+            questions = data.get('questions', [])
+        elif isinstance(data, list):
+            # 如果直接是列表
+            questions = data
+        else:
+            raise ValueError("Invalid data format in JSON file")
+        
+        # 验证每个问题都有必要的字段
+        for q in questions:
+            if 'problem' not in q or 'final_answer' not in q:
+                raise ValueError("Questions must contain 'problem' and 'final_answer' fields")
+        
+        return questions
 
 def should_process_question(question: Dict[str, str], llm: LanguageModel) -> bool:
     """Filter questions based on initial rollouts."""
@@ -40,6 +56,7 @@ def should_process_question(question: Dict[str, str], llm: LanguageModel) -> boo
     has_incorrect = False
 
     initial_batch_answers = llm.generate_rollout(prompt, 32)
+    logger.info(f"Generated {len(initial_batch_answers)} initial answers for filtering")
 
     for answer in initial_batch_answers:
         if llm.evaluate_correctness(answer, correct_answer):
@@ -52,20 +69,28 @@ def should_process_question(question: Dict[str, str], llm: LanguageModel) -> boo
 
     return False
 
-def process_question(omega_prm: OmegaPRM, question: Dict[str, str]):
+def process_question(omega_prm: OmegaPRM, question: Dict[str, str]) -> Dict[str, Any]:
     """Process a single question using OmegaPRM."""
-    return omega_prm.run(question["problem"], question["final_answer"])
+    logger.info(f"Processing question: {question['problem'][:100]}...")
+    result = omega_prm.run(question["problem"], question["final_answer"])
+    logger.info("Question processing completed")
+    return result
 
-def save_question_data(collected_data: Dict, index: int, output_path: str):
+def save_question_data(collected_data: Dict[str, Any], index: int, output_dir: str):
     """Save collected data for a question."""
-    os.makedirs(output_path, exist_ok=True)
-    output_file = os.path.join(output_path, f"question_{index}.json")
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = os.path.join(output_dir, f"question_{index}.json")
+    logger.info(f"Saving results to {output_file}")
     with open(output_file, "w", encoding='utf-8') as f:
         json.dump(collected_data, f, indent=2, ensure_ascii=False)
 
 def main(args):
     # Set up logging
+    global logger
     logger = setup_logging(args.log_file_prefix)
+    
+    # Create output directory
+    os.makedirs(args.output_dir, exist_ok=True)
     
     # Load questions from specified dataset
     questions = load_questions(args.dataset_path)
@@ -108,13 +133,21 @@ def main(args):
     )
 
     # Process questions
+    processed_count = 0
     for i, question in enumerate(questions):
-        if should_process_question(question, llm):
-            logger.info(f"Processing question {i+1}/{len(questions)}")
-            collected_data = process_question(omega_prm, question)
-            save_question_data(collected_data, i, args.output_dir)
-        else:
-            logger.info(f"Skipping question {i+1} (did not pass initial filtering)")
+        try:
+            if should_process_question(question, llm):
+                logger.info(f"Processing question {i+1}/{len(questions)}")
+                collected_data = process_question(omega_prm, question)
+                save_question_data(collected_data, i, args.output_dir)
+                processed_count += 1
+            else:
+                logger.info(f"Skipping question {i+1} (did not pass initial filtering)")
+        except Exception as e:
+            logger.error(f"Error processing question {i+1}: {str(e)}")
+            continue
+
+    logger.info(f"Processing completed. Processed {processed_count}/{len(questions)} questions")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run OmegaPRM on filtered questions")
@@ -140,7 +173,7 @@ if __name__ == "__main__":
                        default="../sources/test.json",
                        help="Path to the dataset JSON file")
     parser.add_argument("--output_dir", type=str, 
-                       default="./output",
+                       default="./output/experiment",
                        help="Directory to save output files")
     
     # Generation parameters
